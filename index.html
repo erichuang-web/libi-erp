@@ -301,7 +301,9 @@ header {
 // 廠商對照表
 // ══════════════════════════════════
 let vendors = [
-  { brand_pdf: 'libi se mi to', vendor_no: 'S1385', country: '日本', brand_erp: 'libi se mi to-' }
+  { brand_pdf: 'libi se mi to', vendor_no: 'S1385', country: '日本', brand_erp: 'libi se mi to-' },
+  { brand_pdf: 'mekoooo×libi se mi to', vendor_no: 'S1385', country: '日本', brand_erp: 'mekoooo×libi se mi to-' },
+  { brand_pdf: 'mekooo×libi se mi to', vendor_no: 'S1385', country: '日本', brand_erp: 'mekoooo×libi se mi to-' }
 ];
 
 function renderVendors() {
@@ -331,7 +333,9 @@ function addVendorRow() {
 function matchVendor(brandFromPDF) {
   if (!brandFromPDF) return vendors[0] || {};
   const lower = brandFromPDF.toLowerCase();
-  return vendors.find(v => lower.includes(v.brand_pdf.toLowerCase())) || vendors[0] || {};
+  // 優先匹配最長（最精確）的品牌名
+  const sorted = [...vendors].sort((a,b) => b.brand_pdf.length - a.brand_pdf.length);
+  return sorted.find(v => lower.includes(v.brand_pdf.toLowerCase())) || vendors[0] || {};
 }
 
 // ══════════════════════════════════
@@ -434,25 +438,31 @@ async function analyseAll() {
     try {
       const parsed = await callClaude(f);
       parsed.forEach(p => {
-        if (!products.find(x => x.styleNo==p.styleNo)) {
-          const vendor = matchVendor(p.brand_pdf);
-          products.push({
-            id: Date.now()+Math.random(),
-            styleNo:  p.styleNo,
-            chName:   p.chName,
-            price:    p.price || 4900,
-            rate:     0.24,
-            delivery: p.delivery || '4月上旬~',
-            keyword:  '', // 待recalc自動產生
-            vendor_no:   vendor.vendor_no  || '',
-            country:     vendor.country    || '日本',
-            brand_erp:   vendor.brand_erp  || '',
-            colors: (p.colors||[]).map(c => ({
-              en: c.en, zh: c.zh||colorZH(c.en),
-              size:'F', qty:1, af:1, prep:0
-            }))
-          });
-        }
+        const vendor = matchVendor(p.brand_pdf);
+        // 支援階梯價格 prices，每個階梯建一筆
+        const priceList = p.prices || (p.price ? [{"label":"","price":p.price}] : [{"label":"","price":4900}]);
+        priceList.forEach((priceItem, pi) => {
+          const uid = p.styleNo + (priceItem.label ? '_'+pi : '');
+          if (!products.find(x => x.styleNo==p.styleNo && x.priceLabel==priceItem.label)) {
+            products.push({
+              id: Date.now()+Math.random(),
+              styleNo:    p.styleNo,
+              priceLabel: priceItem.label || '',
+              chName:     p.chName + (priceItem.label ? '('+priceItem.label+')' : ''),
+              price:      priceItem.price || 4900,
+              rate:       0.24,
+              delivery:   p.delivery || '10月下旬~',
+              keyword:    '',
+              vendor_no:  vendor.vendor_no  || '',
+              country:    vendor.country    || '日本',
+              brand_erp:  vendor.brand_erp  || '',
+              colors: (p.colors||[]).map(c => ({
+                en: c.en, zh: c.zh||colorZH(c.en),
+                size:'F', qty:1, af:1, prep:0
+              }))
+            });
+          }
+        });
       });
       f.status = 'done';
       log(`✓ 解析到 ${parsed.length} 款商品`);
@@ -494,15 +504,22 @@ ${vendorList}
 2. 顏色zh只用一個字：白/藍/墨/粉/紫/米/咖/紅/綠/灰/靛/炭
    對照：BROWN→咖, CHARCOAL→炭, INDIGO→靛, GRAY→灰, OFF→白, PALE BLACK→墨, BABY BLUE→藍, BABY PINK→粉, PALE PURPLE→紫
 3. styleNo：NO.後的完整編號（含英文字母），例如 L10006、440126
-4. price：Price後的日幣數字（整數，去掉逗號）
+4. prices：價格為階梯制時，抓所有階梯，格式如下（若只有一個價格則 prices 只有一個元素）：
+   "prices": [
+     {"label":"35~45枚", "price":6200},
+     {"label":"46~59枚", "price":6130},
+     {"label":"60枚~",   "price":5900}
+   ]
+   若只有單一價格如 ¥4,900，則："prices":[{"label":"","price":4900}]
 5. delivery：取最新交期（紅字或下方文字），例如「10月下旬~」「4月上旬~下旬」
 6. brand_pdf：PDF上的品牌名稱（用來對應廠商）
 
 只回傳JSON陣列，不要任何說明，不要 markdown：
-[{"styleNo":"L10006","chName":"貓咪愛心格紋短版外套","price":13800,"delivery":"10月下旬~","brand_pdf":"libi se mi to","colors":[{"en":"BROWN","zh":"咖"},{"en":"CHARCOAL","zh":"炭"}]},{"styleNo":"L10007","chName":"夜空熊熊刺繡棒球外套","price":14500,"delivery":"10月下旬~","brand_pdf":"libi se mi to","colors":[{"en":"INDIGO","zh":"靛"},{"en":"GRAY","zh":"灰"}]}]`;
+[{"styleNo":"L10001","chName":"熊熊蝴蝶結女孩棒球外套","prices":[{"label":"35~45枚","price":6200},{"label":"46~59枚","price":6130},{"label":"60枚~","price":5900}],"delivery":"10月下旬~11月上旬","brand_pdf":"mekoooo×libi se mi to","colors":[{"en":"IVORY","zh":"白"},{"en":"PINK","zh":"粉"}]}]`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    mode: 'cors',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': getApiKey(),
