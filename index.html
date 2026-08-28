@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>libi se mi to — ERP 建料系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --cream: #FAF8F4;
+  --warm: #F3EDE3;
+  --ink: #1C1A17;
+  --mid: #7A736A;
+  --border: #DDD5C5;
+  --accent: #B8865A;
+  --accent-light: #EDD9C0;
+  --soft: #F5EDE2;
+  --success: #6B9E6B;
+  --danger: #B85858;
+  --shadow-sm: 0 2px 12px rgba(28,26,23,0.07);
+  --shadow-md: 0 6px 28px rgba(28,26,23,0.11);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans TC', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+
+header {
+  background: var(--ink); padding: 0 40px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.brand { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 20px; color: var(--accent-light); letter-spacing: 3px; }
+.brand-sub { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--mid); margin-top: 1px; }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 30px 40px; }
+
+.card {
+  background: white; border: 1px solid var(--border);
+  border-radius: 10px; padding: 28px;
+  box-shadow: var(--shadow-sm); margin-bottom: 20px;
+}
+.card-title {
+  font-family: 'Cormorant Garamond', serif; font-size: 20px;
+  color: var(--ink); margin-bottom: 18px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title small { font-size: 12px; font-family: 'Noto Sans TC', sans-serif; font-weight: 400; color: var(--mid); }
+
+/* VENDOR TABLE */
+.vendor-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; }
+.vendor-table th { background: var(--warm); color: var(--mid); padding: 7px 12px; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; text-align: left; }
+.vendor-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.vendor-table tr:last-child td { border-bottom: none; }
+.vendor-table input { border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; font-size: 12px; font-family: inherit; color: var(--ink); background: var(--cream); width: 100%; }
+.vendor-table input:focus { outline: none; border-color: var(--accent); }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.tag-jp { background: #fff0e0; color: var(--accent); }
+.tag-kr { background: #e8f0ff; color: #5B6BA0; }
+
+/* UPLOAD */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px;
+  padding: 44px 20px; text-align: center; cursor: pointer;
+  transition: all 0.25s; background: var(--warm); position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--soft); }
+.upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-zone h3 { font-size: 16px; font-weight: 500; margin: 12px 0 6px; }
+.upload-zone p { font-size: 12px; color: var(--mid); }
+
+/* PDF LIST */
+.pdf-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.pdf-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px; background: var(--warm);
+  border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+}
+.pdf-item.loading { border-color: var(--accent); background: var(--soft); }
+.pdf-item.done { border-color: var(--success); background: #f0f8f0; }
+.pdf-item.error { border-color: var(--danger); background: #fdf0f0; }
+.pdf-name { flex: 1; font-weight: 500; }
+.pdf-status { font-size: 11px; color: var(--mid); }
+.pdf-item.done .pdf-status { color: var(--success); font-weight: 600; }
+.pdf-item.error .pdf-status { color: var(--danger); }
+.pdf-item.loading .pdf-status { color: var(--accent); }
+.pdf-remove { background: none; border: none; color: var(--mid); cursor: pointer; font-size: 15px; padding: 2px 6px; border-radius: 4px; }
+.pdf-remove:hover { background: var(--border); color: var(--danger); }
+
+/* ANALYSE */
+.analyse-bar { margin-top: 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.progress-wrap { flex: 1; min-width: 160px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; display: none; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); width: 0%; transition: width 0.4s; }
+.progress-text { font-size: 11px; color: var(--mid); }
+
+/* AI LOG */
+.ai-log {
+  background: var(--ink); color: #b8c8a0;
+  border-radius: 8px; padding: 14px 16px;
+  font-family: 'Courier New', monospace; font-size: 11px;
+  line-height: 1.9; max-height: 140px; overflow-y: auto;
+  margin-top: 14px; display: none;
+}
+.ai-log.show { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateX(-4px);} to {opacity:1; transform:none;} }
+.log-line { animation: fadeIn 0.2s ease; }
+
+/* BUTTONS */
+.btn {
+  padding: 10px 22px; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+  transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-accent { background: var(--accent); color: white; }
+.btn-accent:hover:not(:disabled) { background: #A0724A; }
+.btn-ink { background: var(--ink); color: white; }
+.btn-ink:hover:not(:disabled) { background: #2D2A27; }
+.btn-success { background: var(--success); color: white; font-size: 14px; padding: 13px 30px; }
+.btn-success:hover:not(:disabled) { background: #5A8A5A; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover:not(:disabled) { background: #A04A4A; }
+.btn-ghost { background: transparent; color: var(--mid); border: 1px solid var(--border); }
+.btn-ghost:hover:not(:disabled) { background: var(--warm); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; }
+.spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* SUMMARY */
+.summary-bar {
+  display: grid; grid-template-columns: repeat(4,1fr) auto;
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; margin-bottom: 22px; box-shadow: var(--shadow-sm);
+}
+.sum-item { background: white; padding: 16px 20px; text-align: center; }
+.sum-item .val { font-family: 'Cormorant Garamond', serif; font-size: 30px; color: var(--accent); }
+.sum-item .lbl { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--mid); margin-top: 2px; }
+.sum-item.export-cell { background: var(--ink); display: flex; align-items: center; justify-content: center; padding: 16px 24px; }
+
+/* PRODUCTS */
+.products-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+.product-block { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+.product-head { background: var(--ink); color: var(--cream); padding: 11px 18px; display: flex; align-items: center; gap: 14px; }
+.product-head .pno { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 17px; color: var(--accent-light); min-width: 75px; }
+.pname-input { flex: 1; background: transparent; border: none; border-bottom: 1px dashed rgba(255,255,255,0.2); color: white; font-size: 14px; font-weight: 500; font-family: 'Noto Sans TC', sans-serif; padding: 2px 6px; }
+.pname-input:focus { outline: none; border-bottom-color: var(--accent-light); }
+.pname-input::placeholder { color: rgba(255,255,255,0.3); }
+.product-body { background: white; padding: 14px 18px; }
+.product-meta { display: grid; grid-template-columns: 110px 100px 90px 100px 110px 1fr; gap: 10px; margin-bottom: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--mid); }
+.field input, .field select {
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 7px 10px; font-size: 12px;
+  font-family: 'Noto Sans TC', sans-serif; color: var(--ink); background: white;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+
+/* SKU TABLE */
+.sku-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sku-table th { background: var(--warm); color: var(--mid); padding: 6px 8px; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; text-align: left; border-bottom: 1px solid var(--border); }
+.sku-table td { padding: 5px 6px; border-bottom: 1px solid #f0ece5; vertical-align: middle; }
+.sku-table tr:last-child td { border-bottom: none; }
+.sku-table input, .sku-table select { border: 1px solid var(--border); border-radius: 4px; padding: 4px 7px; font-size: 12px; width: 100%; font-family: 'Noto Sans TC', sans-serif; color: var(--ink); background: var(--cream); }
+.sku-table input:focus, .sku-table select:focus { outline: none; border-color: var(--accent); }
+
+/* PREVIEW */
+.preview-wrap { overflow-x: auto; }
+.preview-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 1000px; }
+.preview-table thead th { background: var(--ink); color: var(--cream); padding: 8px 10px; font-size: 10px; font-weight: 500; letter-spacing: 0.5px; white-space: nowrap; text-align: left; }
+.preview-table tbody tr:nth-child(even) { background: var(--warm); }
+.preview-table tbody tr:hover { background: var(--accent-light); }
+.preview-table tbody td { padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; background: var(--accent-light); color: var(--accent); }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 28px; right: 28px;
+  background: var(--ink); color: var(--cream);
+  padding: 13px 20px; border-radius: 8px; font-size: 13px;
+  box-shadow: var(--shadow-md); transform: translateY(80px); opacity: 0;
+  transition: all 0.35s cubic-bezier(.22,1,.36,1); z-index: 9999;
+  border-left: 4px solid var(--accent); max-width: 320px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left-color: var(--success); }
+.toast.error { border-left-color: var(--danger); }
+
+.empty-state { text-align: center; padding: 48px; color: var(--mid); }
+.empty-icon { font-size: 44px; margin-bottom: 12px; opacity: 0.4; }
+
+@media(max-width:900px){
+  .container{padding:16px 18px;} header{padding:0 18px;}
+  .product-meta{grid-template-columns:1fr 1fr;}
+  .summary-bar{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">libi se mi to</div>
+    <div class="brand-sub">ERP 建料 ＆ 採購單 匯入系統</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <label style="font-size:10px;color:var(--mid);letter-spacing:2px;white-space:nowrap">API KEY</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off"
+      oninput="saveApiKey(this.value)"
+      style="width:220px;padding:6px 11px;border-radius:5px;border:1px solid #444;background:#2a2825;color:#e8ddd0;font-size:12px;font-family:monospace">
+    <span id="apiKeyStatus" style="font-size:16px;min-width:20px"></span>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- ① 廠商對照表 -->
+<div class="card">
+  <div class="card-title">
+    廠商對照表
+    <button class="btn btn-ghost btn-sm" onclick="addVendorRow()">＋ 新增品牌</button>
+  </div>
+  <table class="vendor-table">
+    <thead>
+      <tr>
+        <th style="width:200px">品牌名稱（PDF上的字）</th>
+        <th style="width:110px">廠商編號</th>
+        <th style="width:90px">國家</th>
+        <th style="width:200px">品牌（ERP填入）</th>
+        <th style="width:50px"></th>
+      </tr>
+    </thead>
+    <tbody id="vendorBody"></tbody>
+  </table>
+  <p style="font-size:11px;color:var(--mid);margin-top:6px">* AI 會依 PDF 標題中的品牌名稱自動對應廠商編號</p>
+</div>
+
+<!-- ② 上傳PDF -->
+<div class="card">
+  <div class="card-title">上傳商品型錄 PDF <small>支援同時上傳多份</small></div>
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="pdfInput" accept=".pdf,application/pdf" multiple onchange="handlePDFs(this.files)">
+    <span style="font-size:44px">📄</span>
+    <h3>點擊或拖曳 PDF 到此處</h3>
+    <p>支援同時上傳多份型錄，每份可包含多款商品</p>
+  </div>
+  <div class="pdf-list" id="pdfList"></div>
+  <div class="analyse-bar" id="analyseBar" style="display:none">
+    <button class="btn btn-accent" id="analyseBtn" onclick="analyseAll()">
+      ✨ AI 自動解析
+    </button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <span class="progress-text" id="progressText"></span>
+  </div>
+  <div class="ai-log" id="aiLog"></div>
+</div>
+
+<!-- ③ 確認＆編輯商品 -->
+<div id="productSection" style="display:none">
+  <div class="products-header">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:22px">確認＆編輯商品資料</div>
+    <button class="btn btn-ghost btn-sm" onclick="addProductManual()">＋ 手動新增款式</button>
+  </div>
+  <div id="productsContainer"></div>
+</div>
+
+<!-- ④ 預覽匯出 -->
+<div id="exportSection" style="display:none">
+  <div class="summary-bar">
+    <div class="sum-item"><div class="val" id="sum_p">0</div><div class="lbl">款式數</div></div>
+    <div class="sum-item"><div class="val" id="sum_s">0</div><div class="lbl">SKU 數</div></div>
+    <div class="sum-item"><div class="val" id="sum_f">0</div><div class="lbl">PDF 份數</div></div>
+    <div class="sum-item"><div class="val" id="sum_c">0</div><div class="lbl">顏色種類</div></div>
+    <div class="sum-item export-cell">
+      <button class="btn btn-success" onclick="exportExcel()">⬇ 匯出 Excel</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">資料預覽 <small>匯出前請核對</small></div>
+    <div class="preview-wrap">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>#</th><th>料品編號</th><th>料品名稱</th>
+            <th>Style</th><th>商品中文名</th>
+            <th>顏色中</th><th>顏色英</th>
+            <th>上代¥</th><th>標準售價</th><th>交期</th><th>廠商</th><th>關鍵字</th>
+          </tr>
+        </thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════
+// 廠商對照表
+// ══════════════════════════════════
+let vendors = [
+  { brand_pdf: 'libi se mi to', vendor_no: 'S1385', country: '日本', brand_erp: 'libi se mi to-' }
+];
+
+function renderVendors() {
+  document.getElementById('vendorBody').innerHTML = vendors.map((v, i) => `
+    <tr>
+      <td><input value="${esc(v.brand_pdf)}" oninput="vendors[${i}].brand_pdf=this.value" placeholder="e.g. libi se mi to"></td>
+      <td><input value="${esc(v.vendor_no)}" oninput="vendors[${i}].vendor_no=this.value" placeholder="e.g. S1385"></td>
+      <td>
+        <select onchange="vendors[${i}].country=this.value">
+          <option value="日本" ${v.country==='日本'?'selected':''}>🇯🇵 日本</option>
+          <option value="韓國" ${v.country==='韓國'?'selected':''}>🇰🇷 韓國</option>
+          <option value="台灣" ${v.country==='台灣'?'selected':''}>🇹🇼 台灣</option>
+          <option value="中國" ${v.country==='中國'?'selected':''}>🇨🇳 中國</option>
+        </select>
+      </td>
+      <td><input value="${esc(v.brand_erp)}" oninput="vendors[${i}].brand_erp=this.value" placeholder="ERP填入的品牌名"></td>
+      <td><button class="btn btn-ghost btn-xs" onclick="vendors.splice(${i},1);renderVendors()" style="color:var(--danger)">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function addVendorRow() {
+  vendors.push({ brand_pdf: '', vendor_no: '', country: '日本', brand_erp: '' });
+  renderVendors();
+}
+
+function matchVendor(brandFromPDF) {
+  if (!brandFromPDF) return vendors[0] || {};
+  const lower = brandFromPDF.toLowerCase();
+  return vendors.find(v => lower.includes(v.brand_pdf.toLowerCase())) || vendors[0] || {};
+}
+
+// ══════════════════════════════════
+// 顏色對照
+// ══════════════════════════════════
+const COLOR_MAP = {
+  'OFF':'白','BABY BLUE':'藍','SWEET BLUE':'藍','PALE BLACK':'墨',
+  'BABY PINK':'粉','PALE PURPLE':'紫','WHITE':'白','BLACK':'黑',
+  'PINK':'粉','BLUE':'藍','RED':'紅','GREEN':'綠','BEIGE':'米',
+  'CAMEL':'咖','BROWN':'咖','GREY':'灰','GRAY':'灰','NAVY':'藍',
+  'IVORY':'白','CREAM':'米','KHAKI':'咖','LAVENDER':'紫',
+  'PURPLE':'紫','ORANGE':'橘','YELLOW':'黃','MINT':'綠',
+  'CHARCOAL':'炭','INDIGO':'靛','DENIM':'藍','MOSS':'綠',
+  'SAGE':'綠','MUSTARD':'黃','BURGUNDY':'紅','WINE':'紅',
+  'NATURAL':'米','ECRU':'米','SMOKE':'灰','SLATE':'灰',
+};
+const colorZH = en => COLOR_MAP[(en||'').toUpperCase().trim()] || en;
+
+// ══════════════════════════════════
+// 固定值
+// ══════════════════════════════════
+const FIXED = {
+  avg_days:    90,
+  warehouse:   '總公司(地下室)',
+  purchase:    '大貨-船運-EXW',
+  quote:       '免稅',
+  update:      'Y',
+};
+
+// ══════════════════════════════════
+// PDF 上傳
+// ══════════════════════════════════
+let pdfFiles = [];
+let products = [];
+
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); handlePDFs(e.dataTransfer.files); });
+
+function handlePDFs(files) {
+  Array.from(files).forEach(file => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) return;
+    if (pdfFiles.find(f => f.name === file.name)) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      pdfFiles.push({ name: file.name, base64: e.target.result.split(',')[1], status: 'idle' });
+      renderPDFList();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removePDF(name) {
+  pdfFiles = pdfFiles.filter(f => f.name !== name);
+  renderPDFList();
+}
+
+function renderPDFList() {
+  const list = document.getElementById('pdfList');
+  const bar  = document.getElementById('analyseBar');
+  if (!pdfFiles.length) { list.innerHTML = ''; bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const icons  = { idle:'📄', loading:'⏳', done:'✅', error:'❌' };
+  const labels = { idle:'等待解析', loading:'AI 解析中…', done:'解析完成', error:'解析失敗' };
+  list.innerHTML = pdfFiles.map(f => `
+    <div class="pdf-item ${f.status}">
+      <span style="font-size:20px">${icons[f.status]}</span>
+      <span class="pdf-name">${f.name}</span>
+      <span class="pdf-status">${labels[f.status]}</span>
+      ${f.status==='idle'||f.status==='error'
+        ? `<button class="pdf-remove" onclick="removePDF('${esc(f.name)}')">✕</button>` : ''}
+    </div>`).join('');
+}
+
+// ══════════════════════════════════
+// AI 解析
+// ══════════════════════════════════
+function log(msg) {
+  const el = document.getElementById('aiLog');
+  el.classList.add('show');
+  el.innerHTML += `<div class="log-line">> ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function analyseAll() {
+  const pending = pdfFiles.filter(f => f.status==='idle'||f.status==='error');
+  if (!pending.length) { showToast('所有 PDF 已解析完成','success'); return; }
+  if (!getApiKey()) { showToast('⚠ 請先在右上角輸入 Anthropic API Key','error'); return; }
+  const btn = document.getElementById('analyseBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 解析中…';
+  document.getElementById('progressWrap').style.display = 'block';
+  log(`開始解析 ${pending.length} 份 PDF…`);
+
+  for (let i = 0; i < pending.length; i++) {
+    const f = pending[i];
+    f.status = 'loading'; renderPDFList();
+    log(`[${i+1}/${pending.length}] ${f.name}`);
+    setProgress(i / pending.length * 80);
+    try {
+      const parsed = await callClaude(f);
+      parsed.forEach(p => {
+        if (!products.find(x => x.styleNo==p.styleNo)) {
+          const vendor = matchVendor(p.brand_pdf);
+          products.push({
+            id: Date.now()+Math.random(),
+            styleNo:  p.styleNo,
+            chName:   p.chName,
+            price:    p.price || 4900,
+            rate:     0.24,
+            delivery: p.delivery || '4月上旬~',
+            keyword:  '', // 待recalc自動產生
+            vendor_no:   vendor.vendor_no  || '',
+            country:     vendor.country    || '日本',
+            brand_erp:   vendor.brand_erp  || '',
+            colors: (p.colors||[]).map(c => ({
+              en: c.en, zh: c.zh||colorZH(c.en),
+              size:'F', qty:1, af:1, prep:0
+            }))
+          });
+        }
+      });
+      f.status = 'done';
+      log(`✓ 解析到 ${parsed.length} 款商品`);
+    } catch(err) {
+      f.status = 'error';
+      log(`✗ 失敗：${err.message}`);
+    }
+    renderPDFList();
+  }
+
+  setProgress(100);
+  log(`完成！共 ${products.length} 款，${products.reduce((a,p)=>a+p.colors.length,0)} 個 SKU`);
+  btn.disabled = false;
+  btn.innerHTML = '✨ AI 自動解析';
+
+  renderProducts();
+  updateSummary();
+  buildPreview();
+  document.getElementById('productSection').style.display = 'block';
+  document.getElementById('exportSection').style.display = 'block';
+  showToast(`✅ 解析完成，共 ${products.length} 款`, 'success');
+}
+
+function setProgress(pct) {
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('progressText').textContent = pct<100 ? `${Math.round(pct)}%` : '完成！';
+}
+
+async function callClaude(pdfFile) {
+  const vendorList = vendors.map(v => `"${v.brand_pdf}" → vendor:${v.vendor_no}, country:${v.country}, brand_erp:"${v.brand_erp}"`).join('\n');
+
+  const system = `你是日本服裝品牌ERP建料助手。從PDF型錄精確提取商品資料。
+
+廠商對照表：
+${vendorList}
+
+提取規則：
+1. chName（商品中文翻譯）：女生喜歡的可愛簡單風格，描述款式+圖案，10字以內，例如「貓咪愛心格紋短版外套」「夜空熊熊刺繡棒球外套」
+2. 顏色zh只用一個字：白/藍/墨/粉/紫/米/咖/紅/綠/灰/靛/炭
+   對照：BROWN→咖, CHARCOAL→炭, INDIGO→靛, GRAY→灰, OFF→白, PALE BLACK→墨, BABY BLUE→藍, BABY PINK→粉, PALE PURPLE→紫
+3. styleNo：NO.後的完整編號（含英文字母），例如 L10006、440126
+4. price：Price後的日幣數字（整數，去掉逗號）
+5. delivery：取最新交期（紅字或下方文字），例如「10月下旬~」「4月上旬~下旬」
+6. brand_pdf：PDF上的品牌名稱（用來對應廠商）
+
+只回傳JSON陣列，不要任何說明，不要 markdown：
+[{"styleNo":"L10006","chName":"貓咪愛心格紋短版外套","price":13800,"delivery":"10月下旬~","brand_pdf":"libi se mi to","colors":[{"en":"BROWN","zh":"咖"},{"en":"CHARCOAL","zh":"炭"}]},{"styleNo":"L10007","chName":"夜空熊熊刺繡棒球外套","price":14500,"delivery":"10月下旬~","brand_pdf":"libi se mi to","colors":[{"en":"INDIGO","zh":"靛"},{"en":"GRAY","zh":"灰"}]}]`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': getApiKey(),
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfFile.base64 } },
+          { type: 'text', text: '請提取此PDF中所有商品資料，只回傳JSON。' }
+        ]
+      }]
+    })
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const text = data.content.map(c=>c.text||'').join('');
+  const clean = text.replace(/```json|```/g,'').trim();
+  const parsed = JSON.parse(clean);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+// ══════════════════════════════════
+// 商品 CRUD
+// ══════════════════════════════════
+function addProductManual() {
+  const v = vendors[0]||{};
+  products.push({
+    id: Date.now(), styleNo:'', chName:'', price:4900, rate:0.24,
+    delivery:'4月上旬~', keyword:'', vendor_no:v.vendor_no||'',
+    country:v.country||'日本', brand_erp:v.brand_erp||'',
+    colors:[{en:'OFF',zh:'白',size:'F',qty:1,af:1,prep:0}]
+  });
+  renderProducts();
+  document.getElementById('productSection').style.display='block';
+  document.getElementById('exportSection').style.display='block';
+  updateSummary(); buildPreview();
+}
+
+function deleteProduct(id) {
+  products = products.filter(p=>p.id!==id);
+  renderProducts(); updateSummary(); buildPreview();
+}
+
+function setPField(id,field,val) {
+  const p = products.find(p=>p.id===id);
+  if(p) p[field] = ['styleNo','price','rate','std_price'].includes(field) ? Number(val)||val : val;
+  updateSummary(); buildPreview();
+}
+
+
+function recalc(id) {
+  const p = products.find(p=>p.id===id);
+  if(!p) return;
+  const price = p.price || 4900;
+  const rate  = p.rate  || 0.24;
+  const calc  = Math.round(price * rate * 100) / 100;
+  const std   = Math.ceil(calc / 5) * 5;
+  const calcEl = document.getElementById(`calc_${id}`);
+  const stdEl  = document.getElementById(`std_${id}`);
+  if(calcEl) calcEl.value = calc;
+  if(stdEl && !p.std_price_manual) stdEl.value = std;
+  if(!p.std_price_manual) p.std_price = std;
+  p.keyword = autoKeyword(p);
+  // 同步更新關鍵字顯示
+  const kwEl = document.getElementById(`kw_${id}`);
+  if(kwEl) kwEl.value = p.keyword;
+  buildPreview();
+}
+
+function autoKeyword(p) {
+  const now = new Date();
+  const y = now.getFullYear() - 1911; // 民國年 → 西元-1911=民國，但這裡用西元後兩位
+  const yy = String(now.getFullYear()).slice(2);
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const std = p.std_price || Math.ceil((p.price||4900)*(p.rate||0.24)/5)*5;
+  return `${yy}年${m}月${d}日新品,日幣${p.price||4900},售價${std},${p.delivery||''}`;
+}
+
+function addColor(id) {
+  const p = products.find(p=>p.id===id);
+  if(p){ p.colors.push({en:'',zh:'',size:'F',qty:1,af:1,prep:0}); renderProducts(); }
+}
+
+function removeColor(pid,idx) {
+  const p = products.find(p=>p.id===pid);
+  if(p&&p.colors.length>1){ p.colors.splice(idx,1); renderProducts(); }
+}
+
+function setColor(pid,idx,field,val) {
+  const p = products.find(p=>p.id===pid);
+  if(!p) return;
+  p.colors[idx][field] = ['qty','af','prep'].includes(field) ? Number(val) : val;
+  if(field==='en'){
+    const auto = colorZH(val);
+    if(auto!==val){ p.colors[idx].zh=auto; const el=document.getElementById(`zh_${pid}_${idx}`); if(el) el.value=auto; }
+  }
+  updateSummary(); buildPreview();
+}
+
+// ══════════════════════════════════
+// 渲染商品
+// ══════════════════════════════════
+function renderProducts() {
+  const c = document.getElementById('productsContainer');
+  if(!products.length){
+    c.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><p>尚無商品資料</p></div>'; return;
+  }
+  // 確保每個product有keyword
+  products.forEach(p => { if(!p.keyword) p.keyword = autoKeyword(p); });
+  c.innerHTML = products.map(p => `
+  <div class="product-block">
+    <div class="product-head">
+      <span class="pno">#${p.styleNo||'??'}</span>
+      <input class="pname-input" value="${esc(p.chName)}" placeholder="商品中文翻譯名稱（直播主用）"
+        oninput="setPField(${p.id},'chName',this.value)">
+      <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">刪除</button>
+    </div>
+    <div class="product-body">
+      <div class="product-meta">
+        <div class="field"><label>Style 編號</label>
+          <input type="number" value="${p.styleNo}" oninput="setPField(${p.id},'styleNo',this.value)"></div>
+        <div class="field"><label>上代（日幣）</label>
+          <input type="number" value="${p.price}" id="price_${p.id}"
+            oninput="setPField(${p.id},'price',this.value);recalc(${p.id})"></div>
+        <div class="field"><label>匯率</label>
+          <input type="number" value="${p.rate||0.24}" step="0.001" id="rate_${p.id}"
+            oninput="setPField(${p.id},'rate',this.value);recalc(${p.id})"></div>
+        <div class="field"><label>售價試算</label>
+          <input type="number" id="calc_${p.id}" value="${Math.ceil((p.price||4900)*(p.rate||0.24)*100)/100}"
+            style="color:var(--mid);background:var(--warm)" readonly></div>
+        <div class="field"><label>標準售價 ↑進5</label>
+          <input type="number" id="std_${p.id}" value="${Math.ceil((p.price||4900)*(p.rate||0.24)/5)*5}"
+            oninput="setPField(${p.id},'std_price',this.value)"
+            style="color:var(--accent);font-weight:600"></div>
+        <div class="field"><label>交期</label>
+          <input value="${esc(p.delivery)}" oninput="setPField(${p.id},'delivery',this.value)"></div>
+        <div class="field" style="grid-column:1/-1"><label>關鍵字（自動產生）</label>
+          <input id="kw_${p.id}" value="${esc(p.keyword||autoKeyword(p))}" readonly
+            style="color:var(--mid);background:var(--warm);font-size:12px"></div>
+      </div>
+      <table class="sku-table">
+        <thead><tr>
+          <th style="width:130px">顏色（英）</th><th style="width:75px">顏色（中）</th>
+          <th style="width:65px">Size</th><th style="width:75px">採購數量</th>
+          <th style="width:44px"></th>
+        </tr></thead>
+        <tbody>
+          ${p.colors.map((c,i)=>`
+          <tr>
+            <td><input value="${esc(c.en)}" placeholder="e.g. OFF" oninput="setColor(${p.id},${i},'en',this.value)"></td>
+            <td><input id="zh_${p.id}_${i}" value="${esc(c.zh)}" placeholder="白" oninput="setColor(${p.id},${i},'zh',this.value)"></td>
+            <td><select onchange="setColor(${p.id},${i},'size',this.value)">
+              ${['F','S','M','L','XL'].map(s=>`<option value="${s}" ${(c.size||'F')===s?'selected':''}>${s}</option>`).join('')}
+            </select></td>
+            <td><input type="number" value="${c.qty||1}" min="1" oninput="setColor(${p.id},${i},'qty',this.value)"></td>
+
+
+            <td><button class="btn btn-ghost btn-xs" onclick="removeColor(${p.id},${i})" style="color:var(--danger)">－</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <button onclick="addColor(${p.id})" style="margin-top:8px;width:100%;padding:6px;background:var(--warm);border:1px dashed var(--accent);border-radius:5px;color:var(--accent);cursor:pointer;font-size:12px;font-family:inherit">
+        ＋ 新增顏色
+      </button>
+    </div>
+  </div>`).join('');
+}
+
+// ══════════════════════════════════
+// 摘要 & 預覽
+// ══════════════════════════════════
+function updateSummary() {
+  const skus   = products.reduce((a,p)=>a+p.colors.length,0);
+  const colors = new Set(products.flatMap(p=>p.colors.map(c=>c.zh)));
+  document.getElementById('sum_p').textContent = products.length;
+  document.getElementById('sum_s').textContent = skus;
+  document.getElementById('sum_f').textContent = pdfFiles.filter(f=>f.status==='done').length;
+  document.getElementById('sum_c').textContent = colors.size;
+}
+
+function buildPreview() {
+  const rows  = buildRows();
+  const tbody = document.getElementById('previewBody');
+  if(!rows.length){ tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:28px;color:#aaa">尚無資料</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td style="font-size:10px;font-family:monospace">${r.A}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${r.B}</td>
+      <td>${r.L}</td>
+      <td style="max-width:140px">${r.K}</td>
+      <td><span class="badge">${r.M}</span></td>
+      <td>${r.N}</td>
+      <td>¥${r.R}</td>
+      <td><b style="color:var(--accent)">NT$ ${r.STD||Math.ceil(r.R*(r.RATE||0.24)/5)*5}</b><br><span style="font-size:10px;color:var(--mid)">¥${r.R}×${r.RATE||0.24}</span></td>
+      <td>${r.U}</td>
+      <td>${r.G}</td>
+      <td style="font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis">${r.F}</td>
+    </tr>`).join('');
+}
+
+// ══════════════════════════════════
+// 建 Row 資料
+// ══════════════════════════════════
+function buildRows() {
+  const rows = [];
+  products.forEach(p => {
+    p.colors.forEach(c => {
+      rows.push({
+        A: `${p.styleNo}、${c.en}、${c.zh}`,
+        B: `${p.country}${p.brand_erp}${p.styleNo}${p.chName}、${c.zh}`,
+        RATE: p.rate||0.24,
+        STD: p.std_price || Math.ceil((p.price||4900)*(p.rate||0.24)/5)*5,
+        F: p.keyword,
+        G: p.vendor_no,
+        I: p.country,
+        J: p.brand_erp,
+        K: p.chName,
+        L: p.styleNo,
+        M: c.zh,
+        N: c.en,
+        Q: c.qty||1,
+        R: p.price,
+        U: p.delivery,
+        W: FIXED.warehouse,
+        X: FIXED.purchase,
+        Y: FIXED.quote,
+        Z: FIXED.update,
+        AF: c.af||1,
+        AG: c.prep||0,
+      });
+    });
+  });
+  return rows;
+}
+
+// ══════════════════════════════════
+// 匯出 Excel
+// ══════════════════════════════════
+function exportExcel() {
+  const rows = buildRows();
+  if(!rows.length){ showToast('⚠ 請先新增商品資料','error'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const wsData = [[
+    '料品編號','料品名稱','料品成本','標準售價(公式)','標準售價','關鍵字',
+    '廠商編號','平均到貨天數','國家','品牌','商品(中文翻譯)','Style(編號)',
+    '顏色(中文)','顏色(英文)','EXW-船運','大阪-空運','採購數量','上代','下代',
+    '採購成本(日幣)','交期','採購備註',' 到貨倉庫名稱','採購方式','報價模式',
+    '更新成本','採購成本','訂價管理>成本列表','商品編號','商品名稱','編號',
+    '數量','準備率','銷售項目名稱'
+  ]];
+
+  rows.forEach((r,i) => {
+    const row = i+2;
+    wsData.push([
+      {f:`L${row}&"、"&N${row}&"、"&M${row}`},
+      {f:`I${row}&J${row}&L${row}&K${row}&"、"&M${row}`},
+      {f:`(T${row}*0.22)*0.4*1.1+70`},
+      {f:`T${row}*0.24`},
+      (r.STD||Math.ceil(r.R*(r.RATE||0.24)/5)*5), r.F, r.G,
+      FIXED.avg_days,
+      r.I, r.J, r.K, r.L, r.M, r.N,
+      null, null,
+      r.Q, r.R, null,
+      {f:`R${row}`},
+      r.U,
+      {f:`A${row}&"上代:日幣"&ROUNDUP(R${row},0)&"跟"&"下代:日幣"&ROUNDUP(S${row},0)`},
+      r.W, r.X, r.Y, r.Z,
+      {f:`C${row}`},
+      null,
+      {f:`A${row}`},{f:`B${row}`},{f:`A${row}`},
+      r.AF, r.AG,
+      {f:`B${row}`},
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [
+    {wch:22},{wch:32},{wch:14},{wch:14},{wch:10},{wch:32},
+    {wch:10},{wch:12},{wch:8},{wch:18},{wch:22},{wch:10},
+    {wch:8},{wch:14},{wch:10},{wch:10},{wch:10},{wch:8},{wch:8},
+    {wch:10},{wch:14},{wch:32},{wch:16},{wch:14},{wch:8},
+    {wch:8},{wch:10},{wch:16},{wch:22},{wch:32},{wch:22},
+    {wch:8},{wch:8},{wch:32}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, '料品-定價-採購單-匯入');
+  const d = new Date();
+  const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `libi_se_mi_to_${ds}_匯入.xlsx`);
+  showToast(`✅ 已匯出 ${rows.length} 筆 SKU`, 'success');
+}
+
+// ══════════════════════════════════
+// 工具
+// ══════════════════════════════════
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast show ${type}`;
+  clearTimeout(t._t); t._t = setTimeout(()=>t.className='toast', 3200);
+}
+
+// ══════════════════════════════════
+// API Key 管理
+// ══════════════════════════════════
+
+
+function saveApiKey(val) {
+  const key = val.trim();
+  const status = document.getElementById('apiKeyStatus');
+  if (key.startsWith('sk-ant-')) {
+    localStorage.setItem('libi_erp_apikey', key);
+    status.textContent = '✅';
+  } else if (key.length > 0) {
+    status.textContent = '⚠️';
+  } else {
+    status.textContent = '';
+    localStorage.removeItem('libi_erp_apikey');
+  }
+}
+
+function getApiKey() {
+  return (document.getElementById('apiKeyInput')?.value || localStorage.getItem('libi_erp_apikey') || '').trim();
+}
+
+// init
+renderVendors();
+// 自動載入已儲存的 API Key
+const _savedKey = localStorage.getItem('libi_erp_apikey');
+if (_savedKey) {
+  const inp = document.getElementById('apiKeyInput');
+  if (inp) { inp.value = _savedKey; saveApiKey(_savedKey); }
+}
+
+
+</script>
+</body>
+</html>
