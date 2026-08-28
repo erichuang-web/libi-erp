@@ -207,13 +207,7 @@ header {
     <div class="brand">libi se mi to</div>
     <div class="brand-sub">ERP 建料 ＆ 採購單 匯入系統</div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <label style="font-size:10px;color:var(--mid);letter-spacing:2px;white-space:nowrap">API KEY</label>
-    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off"
-      oninput="saveApiKey(this.value)"
-      style="width:220px;padding:6px 11px;border-radius:5px;border:1px solid #444;background:#2a2825;color:#e8ddd0;font-size:12px;font-family:monospace">
-    <span id="apiKeyStatus" style="font-size:16px;min-width:20px"></span>
-  </div>
+  <span style="font-size:11px;color:var(--mid);letter-spacing:3px">2026 SS</span>
 </header>
 
 <div class="container">
@@ -426,7 +420,6 @@ function log(msg) {
 async function analyseAll() {
   const pending = pdfFiles.filter(f => f.status==='idle'||f.status==='error');
   if (!pending.length) { showToast('所有 PDF 已解析完成','success'); return; }
-  if (!getApiKey()) { showToast('⚠ 請先在右上角輸入 Anthropic API Key','error'); return; }
   const btn = document.getElementById('analyseBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> 解析中…';
@@ -834,11 +827,11 @@ function saveApiKey(val) {
   const status = document.getElementById('apiKeyStatus');
   if (key.startsWith('sk-ant-')) {
     localStorage.setItem('libi_erp_apikey', key);
-    status.textContent = '✅';
+    if(status) status.textContent = '✅';
   } else if (key.length > 0) {
-    status.textContent = '⚠️';
+    if(status) status.textContent = '⚠️';
   } else {
-    status.textContent = '';
+    if(status) status.textContent = '';
     localStorage.removeItem('libi_erp_apikey');
   }
 }
@@ -849,11 +842,10 @@ function getApiKey() {
 
 // init
 renderVendors();
-// 自動載入已儲存的 API Key
 const _savedKey = localStorage.getItem('libi_erp_apikey');
 if (_savedKey) {
-  const inp = document.getElementById('apiKeyInput');
-  if (inp) { inp.value = _savedKey; saveApiKey(_savedKey); }
+  const _inp = document.getElementById('apiKeyInput');
+  if (_inp) { _inp.value = _savedKey; saveApiKey(_savedKey); }
 }
 
 
